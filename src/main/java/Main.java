@@ -9,6 +9,7 @@ import utils.ArrayGenerator;
 public class Main {
 
     static int DEFAULT_ITERATIONS = 200;
+    static double SKIP_PERCENTAGE = 0.1; // skip the first 10% of the measurements
 
     /**
      * Measure the average time per element to sort the array.
@@ -22,17 +23,29 @@ public class Main {
     private static <T extends Comparable<T>> double[] measureSortTimes(Sorter<T> sorter,
                                                                        Function<Void, T[]> func,
                                                                        int length, int iterations) {
-
+        final double iterations_skip = iterations * SKIP_PERCENTAGE;
         double[] values = new double[iterations];
-        for (int i = 0; i < iterations; ++i) {
+        for (int i = 0; i < iterations + iterations_skip; ++i) {
             T[] array = func.apply(null);
             long startTime = System.nanoTime();
             sorter.sort(array);
             long endTime = System.nanoTime();
             long delta = endTime - startTime;
-            values[i] = ((double) delta / length);
+            if (i >= iterations_skip) {
+                values[i - (int) iterations_skip] = (double) delta / length;
+            }
         }
         return values;
+    }
+
+    private static String stringMapper(long val) {
+        int stringLength = 4; // enough for 26^4 = ~400k strings
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < stringLength; ++i) {
+            sb.append((char) ('a' + (val % 26)));
+            val /= 26;
+        }
+        return sb.toString();
     }
 
     public static void main(String[] args) {
@@ -42,18 +55,20 @@ public class Main {
         ArrayGenerator.Type[] orders =
             {ArrayGenerator.Type.RANDOM, ArrayGenerator.Type.SORTED, ArrayGenerator.Type.REVERSED};
 
-        List<Sorter<Integer>> sorters =
+        List<Sorter<String>> sorters =
             List.of(new BubbleSortPassPerItem<>(), new BubbleSortUntilNoChange<>(),
                 new BubbleSortWhileNeeded<>());
 
         warmup(); // Warm up the JVM
 
+
         for (int size : sizes) {
+            final int iterations = size <= 1000 ? 2000 : size <= 10000 ? DEFAULT_ITERATIONS : 20;
             for (ArrayGenerator.Type order : orders) {
-                for (Sorter<Integer> sorter : sorters) {
+                for (Sorter<String> sorter : sorters) {
                     double[] times = measureSortTimes(sorter,
-                        __ -> new ArrayGenerator<Integer>(order, size).build(Math::toIntExact),
-                        size, DEFAULT_ITERATIONS);
+                        __ -> new ArrayGenerator<String>(order, size).build(Main::stringMapper),
+                        size, iterations);
                     for (double time : times) {
                         System.out.printf("%s,%s,%s,%s%n", size, order,
                             sorter.getClass().getSimpleName(), time);
