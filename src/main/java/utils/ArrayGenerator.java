@@ -1,5 +1,6 @@
 package utils;
 
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -50,14 +51,14 @@ public class ArrayGenerator<T> {
         this.arrayType = type;
         this.size = size;
     }
-    
+
     public T[] build(Mapper<T> mapping) {
         switch (arrayType) {
-            case Type.RANDOM:
+            case RANDOM:
                 return this.buildRandom(mapping);
-            case Type.SORTED:
+            case SORTED:
                 return this.buildSorted(mapping);
-            case Type.REVERSED:
+            case REVERSED:
                 final T[] array = this.buildSorted(mapping);
                 for (int i = 0, j = array.length - 1; i < j; i++, j--) {
                     T tmp = array[i];
@@ -70,20 +71,23 @@ public class ArrayGenerator<T> {
         }
     }
 
+    /**
+     * Generate a random list of values of type T, using the provided mapping function.
+     *
+     * @param mapping a function mapping a random-generated long to an instance of T
+     * @return an array of random elements
+     */
     private T[] buildRandom(Mapper<T> mapping) {
-        Object[] objects = new Object[this.size];
-        for (int i = 0; i < this.size; ++i) {
-            long randomValue = random.nextLong();
-            objects[i] = mapping.map(randomValue);
-        }
-        return (T[]) objects;
+        List<T> objects = Arrays.asList(this.buildSorted(mapping));
+        Collections.shuffle(objects, random);
+        return objects.toArray((T[]) Array.newInstance(mapping.map(0).getClass(), this.size));
     }
 
     private T[] buildSorted(Mapper<T> mapping) {
-        Object[] objects = new Object[this.size];
+        T[] objects = (T[]) Array.newInstance(mapping.map(0).getClass(), this.size);
         for (int i = 0; i < this.size; ++i) {
             objects[i] = mapping.map(i);
         }
-        return (T[]) objects;
+        return objects;
     }
 }
